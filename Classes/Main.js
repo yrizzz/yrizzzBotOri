@@ -181,7 +181,7 @@ export class YrizzBot {
 
     async reply(text, message) {
         if (typeof text === 'object' && text !== null) {
-            await this.sock.sendMessage(message.key.remoteJid, text);
+            await this.sock.sendMessage(message.key.remoteJid,  {...text});
         } else {
             await this.sock.sendMessage(message.key.remoteJid, { text: text }, { quoted: message, ephemeralExpiration: message.message?.extendedTextMessage?.contextInfo?.expiration || 0 });
         }
@@ -189,7 +189,7 @@ export class YrizzBot {
 
     async sendMessage(text, message) {
         if (typeof text === 'object' && text !== null) {
-            await this.sock.sendMessage(message.key.remoteJid, text);
+            await this.sock.sendMessage(message.key.remoteJid, {...text});
         } else {
             await this.sock.sendMessage(message.key.remoteJid, { text: text }, { ephemeralExpiration: message.message?.extendedTextMessage?.contextInfo?.expiration || 0 });
         }
