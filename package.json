@@ -1,0 +1,12 @@
+{
+  "name": "yrizzz-bot-ori",
+  "version": "1.0.0",
+  "description": "A WhatsApp bot using Baileys library",
+  "main": "index.js",
+  "type":"module",
+  "dependencies": {
+    "baileys": "^6.7.18",
+    "chalk": "^5.4.1",
+    "qrcode": "^1.5.4"
+  }
+}
