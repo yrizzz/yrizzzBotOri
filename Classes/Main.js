@@ -8,6 +8,10 @@ import QRCode from 'qrcode';
 import readline from 'readline';
 import { pathToFileURL } from 'url';
 import Function from './Function.js';
+import ffmpeg from 'fluent-ffmpeg';
+import ffmpegStatic from 'ffmpeg-static';
+ffmpeg.setFfmpegPath(ffmpegStatic);
+
 
 process.setMaxListeners(0);
 
@@ -21,12 +25,12 @@ const {
 } = pkg
 
 const logger = P({ timestamp: () => `,"time":"${new Date().toJSON()}"` }, P.destination('./wa-logs.txt'))
-logger.level = 'trace'
+logger.level = 'silent'
 
 export class YrizzBot {
     constructor() {
         this.prefix = ['!', '#', '.'];
-        this.selfReply = process.argv.includes('--self-reply') ?? true
+        this.selfMode = true
         this.usePairingCode = process.argv.includes('--use-pairing-code') ?? false
         this.msgRetryCounterCache = new NodeCache()
         this.onDemandMap = new Map()
@@ -37,15 +41,6 @@ export class YrizzBot {
 
     question(text) {
         return new Promise((resolve) => this.rl.question(text, resolve))
-    }
-
-    async sendMessageWTyping(sock, msg, jid) {
-        await sock.presenceSubscribe(jid)
-        await delay(500)
-        await sock.sendPresenceUpdate('composing', jid)
-        await delay(2000)
-        await sock.sendPresenceUpdate('paused', jid)
-        await sock.sendMessage(jid, msg)
     }
 
     async startSock() {
@@ -128,7 +123,7 @@ export class YrizzBot {
 
     async messageHandler(type, pattern, callback) {
         pattern = Array.isArray(pattern) ? pattern.join('|') : pattern
-        pattern = pattern instanceof RegExp ? pattern : new RegExp(pattern, 'i');
+        pattern = pattern instanceof RegExp ? pattern : new RegExp(`^.${pattern}`, 'i');
         if (!this.sock) {
             throw new Error('Socket not initialized. Call start() first.');
         }
@@ -139,6 +134,10 @@ export class YrizzBot {
         this.sock.ev.on('messages.upsert', async (events) => {
             const upsert = events;
             for (const msg of upsert.messages) {
+                console.log(msg.key.fromMe,this.selfMode)
+                if (!msg.key.fromMe && this.selfMode) {
+                    return; 
+                }
                 const messageText = await Function.messageContent(msg);
                 const ctx = async () => {
                     this.ctx = {
@@ -180,16 +179,16 @@ export class YrizzBot {
     }
 
     async reply(text, message) {
-        if (typeof text === 'object' && text !== null) {
-            await this.sock.sendMessage(message.key.remoteJid,  {...text});
+        if (Array.isArray(text)) {
+            await this.sock.sendMessage(message.key.remoteJid, ...text);
         } else {
             await this.sock.sendMessage(message.key.remoteJid, { text: text }, { quoted: message, ephemeralExpiration: message.message?.extendedTextMessage?.contextInfo?.expiration || 0 });
         }
     }
 
     async sendMessage(text, message) {
-        if (typeof text === 'object' && text !== null) {
-            await this.sock.sendMessage(message.key.remoteJid, {...text});
+        if (Array.isArray(text)) {
+            await this.sock.sendMessage(message.key.remoteJid, ...text);
         } else {
             await this.sock.sendMessage(message.key.remoteJid, { text: text }, { ephemeralExpiration: message.message?.extendedTextMessage?.contextInfo?.expiration || 0 });
         }
@@ -258,7 +257,6 @@ export class YrizzBot {
             }
         }
     }
-
 
 }
 

@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-export default function req(method, url, formdata = null, header = null) {
+export default async function req(method, url, formdata = null, header = null) {
     const option = {
         url,
         method,
@@ -9,7 +9,7 @@ export default function req(method, url, formdata = null, header = null) {
         data: formdata
     };
 
-    return axios.request(option)
+    return await axios.request(option)
         .then(response => response.data)
         .catch(err => err);
 }

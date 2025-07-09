@@ -59,11 +59,13 @@ export default class Function {
 
     static async messageEventType(msg) {
 
-        let type = Object?.keys(msg?.message)[0] ?? null;
-        if (msg?.message?.protocolMessage?.editedMessage) {
-            return 'Update';
-        } else if (type === 'protocolMessage') {
-            return 'Delete';
+        if(msg){
+            let type = Object?.keys(msg?.message)[0] ?? null;
+            if (msg?.message?.protocolMessage?.editedMessage) {
+                return 'Update';
+            } else if (type === 'protocolMessage') {
+                return 'Delete';
+            }
         }
 
         return 'Received';

@@ -8,8 +8,9 @@ export default {
 		try {
 			await ctx.react('⏳');
 			let data = helper.filtermessage(await ctx.msg, ...await ctx.args);
+			console.log(helper.link(data))
 
-			const result = await req('GET', `https://yrizzz.my.id/api/v1/downloader/instagram?data=${data}`);
+			const result = await req('GET', `https://yrizzz.my.id/api/v1/downloader/instagram?data=${helper.link(data)}`);
 
 			if (result.status) {
 				if (result.data?.mediaUrls[0]?.url) {
@@ -18,14 +19,15 @@ export default {
 					const username = result.data?.username
 					const caption = result.data?.caption
 
-					await ctx.reply({ video: { url: link }, caption: `✅ Success\n\nType : ${type}\nUsername : ${username}\nCaption : ${caption}` }, { ephemeralExpiration: await ctx.msg?.message?.extendedTextMessage?.contextInfo?.expiration ?? 0 });
+					await ctx.reply([{ video: { url: link }, caption: `✅ Success\n\nType : ${type}\nUsername : ${username}\nCaption : ${caption}` }, { ephemeralExpiration: await ctx.msg?.message?.extendedTextMessage?.contextInfo?.expiration ?? 0 }]);
 					await ctx.react('✅');
 				}
 			}
 
 		} catch (err) {
+			console.log(err)
 			await ctx.react('⛔');
-			await ctx.reply({ text: 'internal server error' }, { ephemeralExpiration: await ctx.msg?.message?.extendedTextMessage?.contextInfo?.expiration ?? 0 });
+			await ctx.reply([{ text: 'Failed to fetch please contact the owner' }, { ephemeralExpiration: await ctx.msg?.message?.extendedTextMessage?.contextInfo?.expiration ?? 0 }]);
 		}
 	}
 };

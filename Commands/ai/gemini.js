@@ -8,16 +8,16 @@ export default {
     type: 'command',
     code: async (ctx) => {
         try {
-            ctx.react('⏳');
-            let data = helper.filtermessage(ctx.msg, ...ctx.args);
+            await ctx.react('⏳');
+            let data = helper.filtermessage(await ctx.msg, ...await ctx.args);
             const result = await req('GET', `https://yrizzz.my.id/api/v1/ai/geminiAi?prompt=${encodeURIComponent(data)}`);
             if (result.status) {
-                ctx.reply(result.data);
-                ctx.react(ctx.id, '✅');
+                await ctx.reply(result.data);
+                await ctx.react(await ctx.id, '✅');
             }
         } catch (err) {
-            ctx.react('⛔');
-            ctx.reply('Failed to fetch please contact the owner');
+            await ctx.react('⛔');
+            await ctx.reply('Failed to fetch please contact the owner');
         }
     }
 };
