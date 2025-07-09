@@ -7,7 +7,7 @@ export default {
     code: async (ctx) => {
         try {
             await ctx.react('⏳');
-            let to = ctx.content.split(' ')[1] || 'id';
+            let to = ctx.args[1] || 'id';
             let data = ctx.args.slice(1).join()
 
             const result = await req('GET', `https://yrizzz.my.id/api/v1/tool/translate?from=auto&to=${to}&data=${data}`);

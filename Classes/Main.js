@@ -1,8 +1,6 @@
 import NodeCache from '@cacheable/node-cache';
 import pkg from 'baileys';
 import chalk from 'chalk';
-import ffmpegStatic from 'ffmpeg-static';
-import ffmpeg from 'fluent-ffmpeg';
 import fs from 'fs';
 import path from 'path';
 import P from 'pino';
@@ -10,11 +8,29 @@ import QRCode from 'qrcode';
 import readline from 'readline';
 import { pathToFileURL } from 'url';
 import Function from './Function.js';
+import ffmpeg from 'fluent-ffmpeg';
+import ffmpegStatic from 'ffmpeg-static';
 ffmpeg.setFfmpegPath(ffmpegStatic);
 
 
-process.setMaxListeners(10000);
-const groupCache = new NodeCache({ stdTTL: 5 * 60, useClones: false })
+process.setMaxListeners(0);
+const groupCache = new NodeCache({ stdTTL: 5 * 60, useClones: false }); // cache TTL 5 menit
+
+const getCachedGroupMetadata = async (jid, sock) => {
+    if (!jid.endsWith('@g.us')) return null;
+
+    let cached = groupCache.get(jid);
+    if (cached) return cached;
+
+    try {
+        const fresh = await sock.groupMetadata(jid);
+        groupCache.set(jid, fresh);
+        return fresh;
+    } catch (err) {
+        console.error('groupMetadata rate-limited or failed:', err?.output?.statusCode || err);
+        return null;
+    }
+};
 
 const {
     makeWASocket,
@@ -49,6 +65,7 @@ export class YrizzBot {
         const { state, saveCreds } = await useMultiFileAuthState('baileys_auth_info')
         const { version, isLatest } = await fetchLatestBaileysVersion()
         console.log(chalk.bgGreen(`using WA v${version.join('.')}, isLatest: ${isLatest}`))
+        const groupCache = new NodeCache({ stdTTL: 5 * 60, useClones: false })
         const sock = makeWASocket({
             version,
             logger,
@@ -122,11 +139,6 @@ export class YrizzBot {
                 } else if (type === 'Delete') {
                     clk = chalk.redBright
                 }
-                if (msg?.key?.participant?.endsWith('lid')) {
-                    const meta = msg?.key.remoteJid?.endsWith('g.us') ? await this.sock.groupMetadata(msg?.key.remoteJid) : null
-                    const lid = meta?.participants?.find(p => p?.id === msg.key.participant)
-                    msg.key.participant = typeof lid?.jid !== 'undefined' ? lid.jid : msg.key.participant;
-                }
 
                 let typeMessage = msg?.message && typeof msg.message === 'object' ? Object?.keys(msg.message)[0] : null;
                 console.log(clk(`[${type} Message] at ${new Date(msg.messageTimestamp * 1000).toLocaleString()}`))
@@ -134,7 +146,7 @@ export class YrizzBot {
                 log += `participant: ${msg.key.participant || 'N/A'}\n`
                 log += `fromMe: ${msg.key.fromMe}\n`
                 log += `id: ${msg.key.id}\n`
-                log += `messageType: ${typeMessage}\n`
+                log += `type: ${typeMessage}\n`
                 log += `message: ${await Function.messageContent(msg)}\n`
                 console.log(log)
             }
@@ -153,41 +165,27 @@ export class YrizzBot {
 
         this.sock.ev.on('messages.upsert', async (events) => {
             const upsert = events;
-            if (events.type === 'notify' || events.type === 'append') {
+            if (events.type === 'notify') {
                 for (const msg of upsert.messages) {
                     let fromMe = msg.key.fromMe;
                     const messageText = await Function.messageContent(msg);
-
+        
                     if (msg?.key?.participant?.endsWith('lid')) {
-                        let meta = null;
-
-                        if (msg?.key.remoteJid?.endsWith('g.us')) {
-                            const cached = groupCache.get(msg.key.remoteJid);
-
-                            if (cached) {
-                                meta = cached;
-                            } else {
-                                meta = await this.sock.groupMetadata(msg.key.remoteJid);
-                                groupCache.set(msg.key.remoteJid, meta);
-                            }
-                        }
-
+                        const meta = await getCachedGroupMetadata(msg?.key.remoteJid, this.sock); // PAKAI CACHE
                         const lid = meta?.participants?.find(p => p?.id === msg.key.participant);
-                        msg.key.participant = typeof lid?.jid !== 'undefined' ? lid.jid : msg.key.participant;
-
+                        msg.key.participant = lid?.jid || msg.key.participant;
+                    
                         const botId = this.sock.user.id.replace(/:\d+(@)/, "$1");
-                        fromMe = botId == msg.key.participant;
+                        fromMe = botId === msg.key.participant;
                     }
-
-                    if (!fromMe && this.selfMode) {
-                        return;
-                    }
-
+        
+                    if (!fromMe && this.selfMode) return;
+        
                     const ctx = async () => {
                         this.ctx = {
-                            jid: await Function.jid(msg),
+                            jid: msg.key.participant ? msg.key.participant : msg.key.remoteJid,
                             content: messageText,
-                            messageType: `${msg?.message && typeof msg.message === 'object' ? Object?.keys(msg.message)[0] : null}`,
+                            messageType: msg?.message && typeof msg.message === 'object' ? Object?.keys(msg.message)[0] : null,
                             match: messageText.match(pattern),
                             args: messageText.split(' ').slice(1),
                             msg: msg,
@@ -198,8 +196,8 @@ export class YrizzBot {
                         };
                         return callback(this.ctx);
                     };
-
-                    if (type === 'hears' && messageText && pattern && pattern.test(messageText)) {
+        
+                    if (type === 'hears' && messageText && pattern?.test(messageText)) {
                         ctx();
                     } else if (
                         type === 'command' &&
@@ -209,8 +207,6 @@ export class YrizzBot {
                     ) {
                         ctx();
                     }
-
-                    return;
                 }
             }
         });
