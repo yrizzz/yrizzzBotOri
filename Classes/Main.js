@@ -110,6 +110,11 @@ export class YrizzBot {
             } else if (type === 'Delete') {
                 clk = chalk.redBright
             }
+            if (msg?.key?.participant?.endsWith('lid')) {
+                const meta = m?.key.remoteJid?.endsWith('g.us') ? await this.sock.groupMetadata(m?.key.remoteJid) : null
+                const lid = meta?.participants?.find(p => p?.id === msg.key.participant)
+                msg.key.participant = typeof lid?.jid !== 'undefined' ? lid.jid : msg.key.participant;
+            }
             console.log(clk(`[${type} Message] at ${new Date(msg.messageTimestamp * 1000).toLocaleString()}`))
             let log = `from: ${msg.key.remoteJid}\n`
             log += `participant: ${msg.key.participant || 'N/A'}\n`
@@ -134,9 +139,9 @@ export class YrizzBot {
         this.sock.ev.on('messages.upsert', async (events) => {
             const upsert = events;
             for (const msg of upsert.messages) {
-                console.log(msg.key.fromMe,this.selfMode)
+                console.log(msg.key.fromMe, this.selfMode)
                 if (!msg.key.fromMe && this.selfMode) {
-                    return; 
+                    return;
                 }
                 const messageText = await Function.messageContent(msg);
                 const ctx = async () => {
@@ -178,24 +183,29 @@ export class YrizzBot {
         this.messageHandler('command', pattern, callback);
     }
 
-    async reply(text, message) {
+    async reply(text, msg) {
+        if (msg?.key?.participant?.endsWith('lid')) {
+            const meta = m?.key.remoteJid?.endsWith('g.us') ? await this.sock.groupMetadata(m?.key.remoteJid) : null
+            const lid = meta?.participants?.find(p => p?.id === msg.key.participant)
+            msg.key.participant = typeof lid?.jid !== 'undefined' ? lid.jid : msg.key.participant;
+        }
         if (Array.isArray(text)) {
-            await this.sock.sendMessage(message.key.remoteJid, ...text);
+            await this.sock.sendMessage(msg.key.remoteJid, ...text);
         } else {
-            await this.sock.sendMessage(message.key.remoteJid, { text: text }, { quoted: message, ephemeralExpiration: message.message?.extendedTextMessage?.contextInfo?.expiration || 0 });
+            await this.sock.sendMessage(msg.key.remoteJid, { text: text }, { quoted: msg, ephemeralExpiration: msg.message?.extendedTextMessage?.contextInfo?.expiration || 0 });
         }
     }
 
-    async sendMessage(text, message) {
+    async sendMessage(text, msg) {
         if (Array.isArray(text)) {
-            await this.sock.sendMessage(message.key.remoteJid, ...text);
+            await this.sock.sendMessage(msg.key.remoteJid, ...text);
         } else {
-            await this.sock.sendMessage(message.key.remoteJid, { text: text }, { ephemeralExpiration: message.message?.extendedTextMessage?.contextInfo?.expiration || 0 });
+            await this.sock.sendMessage(msg.key.remoteJid, { text: text }, { ephemeralExpiration: msg.message?.extendedTextMessage?.contextInfo?.expiration || 0 });
         }
     }
 
-    async react(text, message) {
-        await this.sock.sendMessage(message.key.remoteJid, { react: { text: text, key: message.key } }, { ephemeralExpiration: message.message?.extendedTextMessage?.contextInfo?.expiration || 0 });
+    async react(text, msg) {
+        await this.sock.sendMessage(msg.key.remoteJid, { react: { text: text, key: msg.key } }, { ephemeralExpiration: msg.message?.extendedTextMessage?.contextInfo?.expiration || 0 });
     }
 
     async start() {

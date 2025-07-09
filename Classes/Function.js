@@ -59,7 +59,7 @@ export default class Function {
 
     static async messageEventType(msg) {
 
-        if(msg){
+        if (msg) {
             let type = Object?.keys(msg?.message)[0] ?? null;
             if (msg?.message?.protocolMessage?.editedMessage) {
                 return 'Update';
@@ -135,10 +135,10 @@ export default class Function {
 
             const downloadableObject = await getDownloadableMessageObject(actualMessageType, mediaContent);
             if (downloadableObject) {
-                return await downloadMediaMessage(downloadableObject,'buffer');
+                return await downloadMediaMessage(downloadableObject, 'buffer');
             }
         }
-        return false; 
+        return false;
     }
 
 
