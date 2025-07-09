@@ -122,6 +122,11 @@ export class YrizzBot {
                 } else if (type === 'Delete') {
                     clk = chalk.redBright
                 }
+                if (msg?.key?.participant?.endsWith('lid')) {
+                    const meta = msg?.key.remoteJid?.endsWith('g.us') ? await this.sock.groupMetadata(msg?.key.remoteJid) : null
+                    const lid = meta?.participants?.find(p => p?.id === msg.key.participant)
+                    msg.key.participant = typeof lid?.jid !== 'undefined' ? lid.jid : msg.key.participant;
+                }
 
                 let typeMessage = msg?.message && typeof msg.message === 'object' ? Object?.keys(msg.message)[0] : null;
                 console.log(clk(`[${type} Message] at ${new Date(msg.messageTimestamp * 1000).toLocaleString()}`))
@@ -163,8 +168,7 @@ export class YrizzBot {
                                 meta = cached;
                             } else {
                                 meta = await this.sock.groupMetadata(msg.key.remoteJid);
-                                await this.sleep(2000)
-                                await groupCache.set(msg.key.remoteJid, meta);
+                                groupCache.set(msg.key.remoteJid, meta);
                             }
                         }
 
@@ -181,7 +185,7 @@ export class YrizzBot {
 
                     const ctx = async () => {
                         this.ctx = {
-                            jid: msg.key.participant? msg.key.participant : msg.key.remoteJid,
+                            jid: await Function.jid(msg),
                             content: messageText,
                             messageType: `${msg?.message && typeof msg.message === 'object' ? Object?.keys(msg.message)[0] : null}`,
                             match: messageText.match(pattern),
