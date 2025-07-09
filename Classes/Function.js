@@ -1,5 +1,8 @@
 
 import { downloadMediaMessage } from 'baileys'
+import NodeCache from '@cacheable/node-cache';
+const groupCache = new NodeCache({ stdTTL: 5 * 60, useClones: false })
+
 export default class Function {
     static async sleep(ms) {
         return new Promise(resolve => setTimeout(resolve, ms));
@@ -52,16 +55,34 @@ export default class Function {
 
     static async jid(msg) {
         if (msg && msg.key && msg.key.remoteJid) {
-            return msg.key.remoteJid;
+            if (msg?.key?.participant?.endsWith('lid')) {
+                let meta = null;
+
+                if (msg?.key.remoteJid?.endsWith('g.us')) {
+                    const cached = groupCache.get(msg.key.remoteJid);
+
+                    if (cached) {
+                        meta = cached;
+                    } else {
+                        meta = await this.sock.groupMetadata(msg.key.remoteJid);
+                        await groupCache.set(msg.key.remoteJid, meta);
+                    }
+                }
+
+                const lid = meta?.participants?.find(p => p?.id === msg.key.participant);
+                msg.key.remoteJid = typeof lid?.jid !== 'undefined' ? lid.jid : msg.key.participant;
+            }
+            return  msg.key.participant ?? msg.key.remoteJid;
         }
         return null;
     }
 
     static async messageEventType(msg) {
 
-        if (msg) {
-            let type = Object?.keys(msg?.message)[0] ?? null;
-            if (msg?.message?.protocolMessage?.editedMessage) {
+        if (msg?.message && typeof msg.message === 'object') {
+            let type = Object.keys(msg.message)[0] ?? null;
+
+            if (msg.message.protocolMessage?.editedMessage) {
                 return 'Update';
             } else if (type === 'protocolMessage') {
                 return 'Delete';

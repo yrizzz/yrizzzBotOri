@@ -1,6 +1,8 @@
 import NodeCache from '@cacheable/node-cache';
 import pkg from 'baileys';
 import chalk from 'chalk';
+import ffmpegStatic from 'ffmpeg-static';
+import ffmpeg from 'fluent-ffmpeg';
 import fs from 'fs';
 import path from 'path';
 import P from 'pino';
@@ -8,12 +10,11 @@ import QRCode from 'qrcode';
 import readline from 'readline';
 import { pathToFileURL } from 'url';
 import Function from './Function.js';
-import ffmpeg from 'fluent-ffmpeg';
-import ffmpegStatic from 'ffmpeg-static';
 ffmpeg.setFfmpegPath(ffmpegStatic);
 
 
-process.setMaxListeners(0);
+process.setMaxListeners(10000);
+const groupCache = new NodeCache({ stdTTL: 5 * 60, useClones: false })
 
 const {
     makeWASocket,
@@ -35,6 +36,7 @@ export class YrizzBot {
         this.msgRetryCounterCache = new NodeCache()
         this.onDemandMap = new Map()
         this.rl = readline.createInterface({ input: process.stdin, output: process.stdout })
+        this.sleep = ms => new Promise(res => setTimeout(res, ms));
         this.ctx = null;
         this.sock = null;
     }
@@ -47,7 +49,6 @@ export class YrizzBot {
         const { state, saveCreds } = await useMultiFileAuthState('baileys_auth_info')
         const { version, isLatest } = await fetchLatestBaileysVersion()
         console.log(chalk.bgGreen(`using WA v${version.join('.')}, isLatest: ${isLatest}`))
-
         const sock = makeWASocket({
             version,
             logger,
@@ -57,6 +58,7 @@ export class YrizzBot {
             },
             msgRetryCounterCache: this.msgRetryCounterCache,
             generateHighQualityLinkPreview: true,
+            cachedGroupMetadata: async (jid) => groupCache.get(jid)
         })
 
         if (this.usePairingCode && !sock.authState.creds.registered) {
@@ -92,6 +94,16 @@ export class YrizzBot {
             }
         )
 
+        sock.ev.on('groups.update', async ([event]) => {
+            const metadata = await sock.groupMetadata(event.id)
+            groupCache.set(event.id, metadata)
+        })
+
+        sock.ev.on('group-participants.update', async (event) => {
+            const metadata = await sock.groupMetadata(event.id)
+            groupCache.set(event.id, metadata)
+        })
+
         this.sock = sock;
         return sock
     }
@@ -100,29 +112,27 @@ export class YrizzBot {
         const upsert = events['messages.upsert']
         const messages = upsert.messages
         let clk = chalk.whiteBright;
+        if (upsert.type === 'notify' || upsert.type === 'append') {
+            for (const msg of messages) {
+                const type = await Function.messageEventType(msg);
+                if (type === 'Update') {
+                    clk = chalk.blueBright
+                } else if (type === 'Received') {
+                    clk = chalk.greenBright
+                } else if (type === 'Delete') {
+                    clk = chalk.redBright
+                }
 
-        for (const msg of messages) {
-            const type = await Function.messageEventType(msg);
-            if (type === 'Update') {
-                clk = chalk.blueBright
-            } else if (type === 'Received') {
-                clk = chalk.greenBright
-            } else if (type === 'Delete') {
-                clk = chalk.redBright
+                let typeMessage = msg?.message && typeof msg.message === 'object' ? Object?.keys(msg.message)[0] : null;
+                console.log(clk(`[${type} Message] at ${new Date(msg.messageTimestamp * 1000).toLocaleString()}`))
+                let log = `from: ${msg.key.remoteJid}\n`
+                log += `participant: ${msg.key.participant || 'N/A'}\n`
+                log += `fromMe: ${msg.key.fromMe}\n`
+                log += `id: ${msg.key.id}\n`
+                log += `messageType: ${typeMessage}\n`
+                log += `message: ${await Function.messageContent(msg)}\n`
+                console.log(log)
             }
-            if (msg?.key?.participant?.endsWith('lid')) {
-                const meta = m?.key.remoteJid?.endsWith('g.us') ? await this.sock.groupMetadata(m?.key.remoteJid) : null
-                const lid = meta?.participants?.find(p => p?.id === msg.key.participant)
-                msg.key.participant = typeof lid?.jid !== 'undefined' ? lid.jid : msg.key.participant;
-            }
-            console.log(clk(`[${type} Message] at ${new Date(msg.messageTimestamp * 1000).toLocaleString()}`))
-            let log = `from: ${msg.key.remoteJid}\n`
-            log += `participant: ${msg.key.participant || 'N/A'}\n`
-            log += `fromMe: ${msg.key.fromMe}\n`
-            log += `id: ${msg.key.id}\n`
-            log += `type: ${Object?.keys(msg.message)[0]}\n`
-            log += `message: ${await Function.messageContent(msg)}\n`
-            console.log(log)
         }
     }
 
@@ -138,39 +148,66 @@ export class YrizzBot {
 
         this.sock.ev.on('messages.upsert', async (events) => {
             const upsert = events;
-            for (const msg of upsert.messages) {
-                console.log(msg.key.fromMe, this.selfMode)
-                if (!msg.key.fromMe && this.selfMode) {
+            if (events.type === 'notify' || events.type === 'append') {
+                for (const msg of upsert.messages) {
+                    let fromMe = msg.key.fromMe;
+                    const messageText = await Function.messageContent(msg);
+
+                    if (msg?.key?.participant?.endsWith('lid')) {
+                        let meta = null;
+
+                        if (msg?.key.remoteJid?.endsWith('g.us')) {
+                            const cached = groupCache.get(msg.key.remoteJid);
+
+                            if (cached) {
+                                meta = cached;
+                            } else {
+                                meta = await this.sock.groupMetadata(msg.key.remoteJid);
+                                await this.sleep(2000)
+                                await groupCache.set(msg.key.remoteJid, meta);
+                            }
+                        }
+
+                        const lid = meta?.participants?.find(p => p?.id === msg.key.participant);
+                        msg.key.participant = typeof lid?.jid !== 'undefined' ? lid.jid : msg.key.participant;
+
+                        const botId = this.sock.user.id.replace(/:\d+(@)/, "$1");
+                        fromMe = botId == msg.key.participant;
+                    }
+
+                    if (!fromMe && this.selfMode) {
+                        return;
+                    }
+
+                    const ctx = async () => {
+                        this.ctx = {
+                            jid: msg.key.participant? msg.key.participant : msg.key.remoteJid,
+                            content: messageText,
+                            messageType: `${msg?.message && typeof msg.message === 'object' ? Object?.keys(msg.message)[0] : null}`,
+                            match: messageText.match(pattern),
+                            args: messageText.split(' ').slice(1),
+                            msg: msg,
+                            sock: this.sock,
+                            reply: async (text) => this.reply(text, msg),
+                            sendMessage: async (text) => this.sendMessage(text, msg),
+                            react: async (text) => this.react(text, msg)
+                        };
+                        return callback(this.ctx);
+                    };
+
+                    if (type === 'hears' && messageText && pattern && pattern.test(messageText)) {
+                        ctx();
+                    } else if (
+                        type === 'command' &&
+                        messageText &&
+                        this.prefix.some(prefix => messageText.startsWith(prefix)) &&
+                        messageText.match(pattern)
+                    ) {
+                        ctx();
+                    }
+
                     return;
                 }
-                const messageText = await Function.messageContent(msg);
-                const ctx = async () => {
-                    this.ctx = {
-                        jid: await Function.jid(msg),
-                        content: messageText,
-                        messageType: `${Object?.keys(msg.message)[0]}`,
-                        match: messageText.match(pattern),
-                        args: messageText.split(' ').slice(1),
-                        msg: msg,
-                        reply: async (text) => this.reply(text, msg),
-                        sendMessage: async (text) => this.sendMessage(text, msg),
-                        react: async (text) => this.react(text, msg)
-                    };
-                    return callback(this.ctx);
-                }
-
-                if (type === 'hears' && messageText && pattern && pattern.test(messageText)) {
-                    ctx()
-                } else if (
-                    type === 'command' &&
-                    messageText &&
-                    this.prefix.some(prefix => messageText.startsWith(prefix)) &&
-                    messageText.match(pattern)
-                ) {
-                    ctx();
-                }
-
-                return;
             }
         });
     }
@@ -184,11 +221,6 @@ export class YrizzBot {
     }
 
     async reply(text, msg) {
-        if (msg?.key?.participant?.endsWith('lid')) {
-            const meta = m?.key.remoteJid?.endsWith('g.us') ? await this.sock.groupMetadata(m?.key.remoteJid) : null
-            const lid = meta?.participants?.find(p => p?.id === msg.key.participant)
-            msg.key.participant = typeof lid?.jid !== 'undefined' ? lid.jid : msg.key.participant;
-        }
         if (Array.isArray(text)) {
             await this.sock.sendMessage(msg.key.remoteJid, ...text);
         } else {
@@ -197,6 +229,7 @@ export class YrizzBot {
     }
 
     async sendMessage(text, msg) {
+
         if (Array.isArray(text)) {
             await this.sock.sendMessage(msg.key.remoteJid, ...text);
         } else {
