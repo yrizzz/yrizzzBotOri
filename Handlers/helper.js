@@ -15,6 +15,14 @@ export default {
 
         return result;
     },
+    isGroup: (jid) => {
+        return jid && jid.endsWith('@g.us');
+    },
+
+    // A helper to determine if a JID is a user JID
+    isUser: (jid) => {
+        return jid && jid.endsWith('@s.whatsapp.net');
+    },
     link: (text) => {
         // Regex to match URLs starting with http:// or https://
         // This pattern is quite comprehensive but not exhaustive for all URL cases.
