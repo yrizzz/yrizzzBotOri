@@ -171,7 +171,10 @@ export class YrizzBot {
                 const messageText = await Function.messageContent(msg);
 
                 if (msg?.key?.participant?.endsWith('lid')) {
-                    const meta = await getCachedGroupMetadata(msg?.key.remoteJid, this.sock); // CACHE
+                    // const meta = await getCachedGroupMetadata(msg?.key.remoteJid, this.sock); // CACHE
+                    const meta = await this.sock.groupMetadata(msg?.key.remoteJid); // CACHE
+
+                    console.log(meta)
                     const lid = meta?.participants?.find(p => p?.id === msg.key.participant);
                     msg.key.participant = lid?.jid || msg.key.participant;
 
