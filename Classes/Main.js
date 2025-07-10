@@ -165,7 +165,7 @@ export class YrizzBot {
 
         this.sock.ev.on('messages.upsert', async (events) => {
             const upsert = events;
-            if (events.type === 'notify') {
+            if (events.type === 'notify' && events.type === 'append') {
                 for (const msg of upsert.messages) {
                     let fromMe = msg.key.fromMe;
                     const messageText = await Function.messageContent(msg);

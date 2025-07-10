@@ -8,15 +8,11 @@ export default {
     aliases: ['tr', 'translite'],
     type: 'command',
     code: async (ctx) => {
-        const m = ctx._msg;
-        const command = m.content.split(' ')[0];
-        let data = m.content.slice(command.length + 3); // assumes "tr id [text]" format
-
-        await ctx.react(ctx.id, '⏳');
-
+        
         try {
-            data = helper.filtermessage(m, data);
-            const to = m.content.split(' ')[1] || 'id';
+            await ctx.react(ctx.id, '⏳');
+            let data = helper.filtermessage(m, data);
+            const to = ctx.args[1] || 'id';
 
             const result = await req(
                 'GET',
@@ -36,7 +32,6 @@ export default {
             );
             await ctx.react(ctx.id, '✅');
         } catch (err) {
-            console.error(err);
             await ctx.react(ctx.id, '⛔');
             await ctx.reply(
                 { text: 'internal server error' },
