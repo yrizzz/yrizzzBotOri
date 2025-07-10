@@ -31,8 +31,6 @@ export default {
             disk,
             net,
             virt,
-            load,
-            netInterfaces,
         ] = await Promise.all([
             si.cpu(),
             si.mem(),
@@ -51,23 +49,17 @@ export default {
         const uptime = formatUptime(os.uptime());
         const botUptime = formatUptime((Date.now() - botStartTime) / 1000);
 
-        const activeIPv4 = netInterfaces.some(net => net.ip4 && !net.internal);
-        const activeIPv6 = netInterfaces.some(net => net.ip6 && !net.internal);
-
         const nodeStats = process.memoryUsage();
         const [load1, load5, load15] = os.loadavg();
         const message = `
 *INFO SERVER*
 - Speed Respons: ${latency} Milisecond(s)
-- Hostname: ${os.hostname()}
 - CPU Model: ${cpu.manufacturer} ${cpu.brand}
 - CPU Core: ${cpu.cores}
 - Platform : ${platform}
 - OS : ${osInfo.build} / ${release}
 - Kernel Arch: ${arch}
 - Virtualization: ${virt.virtualization || 'Unknown'}
-- IPv4 Active: ${activeIPv4 ? 'Yes' : 'No'}
-- IPv6 Active: ${activeIPv6 ? 'Yes' : 'No'}
 - Ram: ${formatBytes(mem.active)} / ${formatBytes(mem.total)}
 - Swap: ${formatBytes(mem.swaptotal)} / ${formatBytes(mem.swaptotal)}
 - Load Average: ${load1.toFixed(2)}, ${load5.toFixed(2)}, ${load15.toFixed(2)}
