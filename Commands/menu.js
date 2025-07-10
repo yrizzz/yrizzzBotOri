@@ -83,7 +83,7 @@ export default {
             if (!hasCommands) {
                 menuText += "No commands found. Make sure your command files are in the 'commands' folder (or its subfolders) and export a 'name' property.";
             } else {
-                menuText += "\n_By Yrizzz https://yrizzz.my.id._";
+                menuText += "\n_*By Yrizzz*_";
             }
 
             await ctx.reply(menuText);
