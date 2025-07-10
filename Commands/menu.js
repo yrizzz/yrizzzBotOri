@@ -72,7 +72,7 @@ export default {
                     const displayGroupName = groupName.charAt(0).toUpperCase() + groupName.slice(1);
                     menuText += `*─── 「 ${displayGroupName} 」 ───*\n`;
                     groupedCommands[groupName].forEach(commandName => {
-                        menuText += `🔹 !${commandName}\n`;
+                        menuText += `- .${commandName}\n`;
                     });
                     menuText += '\n'; // Add a newline after each group
                 }
