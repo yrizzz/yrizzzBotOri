@@ -178,7 +178,7 @@ export class YrizzBot {
                     fromMe = botId === msg.key.participant;
                 }
 
-                if (!fromMe && this.selfMode) return;
+                if (!fromMe && this.selfMode && !messageText.includes(['mention'])) return;
 
                 for (const handler of this.messageHandlers) {
                     const { type, pattern, callback } = handler;
