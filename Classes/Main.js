@@ -1,19 +1,17 @@
-import NodeCache from '@cacheable/node-cache';
 import pkg from 'baileys';
 import chalk from 'chalk';
+import ffmpegStatic from 'ffmpeg-static';
+import ffmpeg from 'fluent-ffmpeg';
 import fs from 'fs';
+import NodeCache from 'node-cache';
 import path from 'path';
 import P from 'pino';
 import QRCode from 'qrcode';
 import readline from 'readline';
 import { pathToFileURL } from 'url';
 import Function from './Function.js';
-import ffmpeg from 'fluent-ffmpeg';
-import ffmpegStatic from 'ffmpeg-static';
 ffmpeg.setFfmpegPath(ffmpegStatic);
 
-
-process.setMaxListeners(0);
 const groupCache = new NodeCache({ stdTTL: 5 * 60, useClones: false }); // cache TTL 5 menit
 
 const getCachedGroupMetadata = async (jid, sock) => {
@@ -34,7 +32,6 @@ const getCachedGroupMetadata = async (jid, sock) => {
 
 const {
     makeWASocket,
-    delay,
     DisconnectReason,
     fetchLatestBaileysVersion,
     makeCacheableSignalKeyStore,
@@ -104,10 +101,6 @@ export class YrizzBot {
                 if (events['creds.update']) {
                     await saveCreds()
                 }
-
-                if (events['messages.upsert']) {
-                    await this.upsertMessage(events)
-                }
             }
         )
 
@@ -125,33 +118,16 @@ export class YrizzBot {
         return sock
     }
 
-    async upsertMessage(events) {
-        const upsert = events['messages.upsert']
-        const messages = upsert.messages
-        let clk = chalk.whiteBright;
-        if (upsert.type === 'notify' || upsert.type === 'append') {
-            for (const msg of messages) {
-                const type = await Function.messageEventType(msg);
-                if (type === 'Update') {
-                    clk = chalk.blueBright
-                } else if (type === 'Received') {
-                    clk = chalk.greenBright
-                } else if (type === 'Delete') {
-                    clk = chalk.redBright
-                }
+    // async upsertMessage(events) {
+    //     const upsert = events['messages.upsert']
+    //     const messages = upsert.messages
+    //     let clk = chalk.whiteBright;
+    //     if (upsert.type === 'notify' || upsert.type === 'append') {
+    //         for (const msg of messages) {
 
-                let typeMessage = msg?.message && typeof msg.message === 'object' ? Object?.keys(msg.message)[0] : null;
-                console.log(clk(`[${type} Message] at ${new Date(msg.messageTimestamp * 1000).toLocaleString()}`))
-                let log = `from: ${msg.key.remoteJid}\n`
-                log += `participant: ${msg.key.participant || 'N/A'}\n`
-                log += `fromMe: ${msg.key.fromMe}\n`
-                log += `id: ${msg.key.id}\n`
-                log += `type: ${typeMessage}\n`
-                log += `message: ${await Function.messageContent(msg)}\n`
-                console.log(log)
-            }
-        }
-    }
+    //         }
+    //     }
+    // }
 
     async messageHandler(type, pattern, callback) {
         pattern = Array.isArray(pattern) ? pattern.join('|') : pattern
@@ -167,20 +143,39 @@ export class YrizzBot {
             const upsert = events;
             if (events.type === 'notify' && events.type === 'append') {
                 for (const msg of upsert.messages) {
+                    const type = await Function.messageEventType(msg);
+                    if (type === 'Update') {
+                        clk = chalk.blueBright
+                    } else if (type === 'Received') {
+                        clk = chalk.greenBright
+                    } else if (type === 'Delete') {
+                        clk = chalk.redBright
+                    }
+
+                    let typeMessage = msg?.message && typeof msg.message === 'object' ? Object?.keys(msg.message)[0] : null;
+                    console.log(clk(`[${type} Message] at ${new Date(msg.messageTimestamp * 1000).toLocaleString()}`))
+                    let log = `from: ${msg.key.remoteJid}\n`
+                    log += `participant: ${msg.key.participant || 'N/A'}\n`
+                    log += `fromMe: ${msg.key.fromMe}\n`
+                    log += `id: ${msg.key.id}\n`
+                    log += `type: ${typeMessage}\n`
+                    log += `message: ${await Function.messageContent(msg)}\n`
+                    console.log(log)
+
                     let fromMe = msg.key.fromMe;
                     const messageText = await Function.messageContent(msg);
-        
+
                     if (msg?.key?.participant?.endsWith('lid')) {
                         const meta = await getCachedGroupMetadata(msg?.key.remoteJid, this.sock); // PAKAI CACHE
                         const lid = meta?.participants?.find(p => p?.id === msg.key.participant);
                         msg.key.participant = lid?.jid || msg.key.participant;
-                    
+
                         const botId = this.sock.user.id.replace(/:\d+(@)/, "$1");
                         fromMe = botId === msg.key.participant;
                     }
-        
+
                     if (!fromMe && this.selfMode) return;
-        
+
                     const ctx = async () => {
                         this.ctx = {
                             jid: msg.key.participant ? msg.key.participant : msg.key.remoteJid,
@@ -196,7 +191,7 @@ export class YrizzBot {
                         };
                         return callback(this.ctx);
                     };
-        
+
                     if (type === 'hears' && messageText && pattern?.test(messageText)) {
                         ctx();
                     } else if (
