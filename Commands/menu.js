@@ -1,4 +1,3 @@
-// File: commands/menu.js
 import fs from 'fs/promises';
 import path from 'path';
 import { pathToFileURL } from 'url';
@@ -7,21 +6,18 @@ export default {
     type: 'command',
     code: async (ctx) => {
         try {
-            const commandsRootDir = path.resolve('./Commands'); // Root directory for all commands
+            const commandsRootDir = path.resolve('./Commands'); 
 
-            // Use an object to store commands, grouped by subfolder
-            const groupedCommands = {}; // e.g., { 'general': ['help', 'ping'], 'socialmedia': ['igprofile', 'ttprofile'] }
+            const groupedCommands = {}; 
 
-            // Read the contents of the commands root directory
             const topLevelItems = await fs.readdir(commandsRootDir, { withFileTypes: true });
 
             for (const item of topLevelItems) {
                 const itemPath = path.join(commandsRootDir, item.name);
 
                 if (item.isDirectory()) {
-                    // It's a subfolder, read its contents
                     const subfolderName = item.name;
-                    groupedCommands[subfolderName] = []; // Initialize array for this group
+                    groupedCommands[subfolderName] = []; 
 
                     const commandFiles = await fs.readdir(itemPath);
 
@@ -40,11 +36,8 @@ export default {
                             }
                         }
                     }
-                    // Sort commands within each group alphabetically
                     groupedCommands[subfolderName].sort();
                 } else if (item.isFile() && item.name.endsWith('.js')) {
-                    // It's a direct command file in the root 'commands' folder
-                    // You might want to put these in a "General" or "Ungrouped" category
                     if (!groupedCommands['general']) {
                         groupedCommands['general'] = [];
                     }
@@ -64,17 +57,15 @@ export default {
             let menuText = "📚 *Available Commands:* 📚\n\n";
             let hasCommands = false;
 
-            // Iterate through groupedCommands object to build the menu text
             for (const groupName in groupedCommands) {
                 if (groupedCommands[groupName].length > 0) {
                     hasCommands = true;
-                    // Capitalize the first letter of the group name for display
                     const displayGroupName = groupName.charAt(0).toUpperCase() + groupName.slice(1);
                     menuText += `*「 ${displayGroupName} 」*\n`;
                     groupedCommands[groupName].forEach(commandName => {
                         menuText += `- .${commandName}\n`;
                     });
-                    menuText += '\n'; // Add a newline after each group
+                    menuText += '\n'; 
                 }
             }
 
