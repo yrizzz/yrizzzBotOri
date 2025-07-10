@@ -70,7 +70,7 @@ export default {
                     hasCommands = true;
                     // Capitalize the first letter of the group name for display
                     const displayGroupName = groupName.charAt(0).toUpperCase() + groupName.slice(1);
-                    menuText += `* 「 ${displayGroupName} 」 *\n`;
+                    menuText += `*_「 ${displayGroupName} 」_*\n`;
                     groupedCommands[groupName].forEach(commandName => {
                         menuText += `- .${commandName}\n`;
                     });
