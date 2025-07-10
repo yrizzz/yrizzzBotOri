@@ -201,6 +201,7 @@ export class YrizzBot {
                             args: messageText.split(' ').slice(1),
                             msg: msg,
                             sock: this.sock,
+                            prefixSupport:this.prefix,
                             reply: async (text) => this.reply(text, msg),
                             sendMessage: async (text) => this.sendMessage(text, msg),
                             react: async (text) => this.react(text, msg)
