@@ -1,4 +1,5 @@
 import req from '../../Handlers/req.js';
+import helper from '../../Handlers/helper.js';
 
 export default {
     name: 'translite',
@@ -7,8 +8,8 @@ export default {
     code: async (ctx) => {
         try {
             await ctx.react('⏳');
-            let to = ctx.args[1] || 'id';
-            let data = ctx.args.slice(1).join()
+            let to = ctx.args[0] || 'id';
+            let data = helper.filtermessage(await ctx.msg, ...await ctx.args);
 
             const result = await req('GET', `https://yrizzz.my.id/api/v1/tool/translate?from=auto&to=${to}&data=${data}`);
 
@@ -23,7 +24,6 @@ export default {
             await ctx.react('✅');
 
         } catch (err) {
-            console.error(err); 
             await ctx.react('⛔');
             await ctx.reply('Failed to fetch please contact the owner');
 

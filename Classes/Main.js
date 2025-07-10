@@ -52,6 +52,8 @@ export class YrizzBot {
         this.sleep = ms => new Promise(res => setTimeout(res, ms));
         this.ctx = null;
         this.sock = null;
+        this.messageHandlers = []; // Store all handlers here
+        this.isMessageListenerRegistered = false; // Prevent re-registering
     }
 
     question(text) {
@@ -101,6 +103,38 @@ export class YrizzBot {
                 if (events['creds.update']) {
                     await saveCreds()
                 }
+
+                if (events['messages.upsert']) {
+                    const upsert = events['messages.upsert']
+                    if (upsert.type === 'notify' || upsert.type === 'append') {
+                        let clk = chalk.white;
+                        let log = '';
+                        for (const msg of upsert.messages) {
+                            const eventType = await Function.messageEventType(msg);
+                            if (eventType === 'Update') {
+                                clk = chalk.blueBright;
+                            } else if (eventType === 'Received') {
+                                clk = chalk.greenBright;
+                            } else if (eventType === 'Delete') {
+                                clk = chalk.redBright;
+                            }
+
+                            const typeMessage = msg?.message && typeof msg.message === 'object'
+                                ? Object.keys(msg.message)[0]
+                                : null;
+
+                            log += (clk(`[${eventType} Message] at ${new Date(msg.messageTimestamp * 1000).toLocaleString()}\n`));
+
+                            log += `from: ${msg.key.remoteJid}\n`;
+                            log += `participant: ${msg.key.participant || 'N/A'}\n`;
+                            log += `fromMe: ${msg.key.fromMe}\n`;
+                            log += `id: ${msg.key.id}\n`;
+                            log += `type: ${typeMessage}\n`;
+                            log += `message: ${await Function.messageContent(msg)}\n`;
+                            console.log(log);
+                        }
+                    }
+                }
             }
         )
 
@@ -118,66 +152,49 @@ export class YrizzBot {
         return sock
     }
 
-    // async upsertMessage(events) {
-    //     const upsert = events['messages.upsert']
-    //     const messages = upsert.messages
-    //     let clk = chalk.whiteBright;
-    //     if (upsert.type === 'notify' || upsert.type === 'append') {
-    //         for (const msg of messages) {
-
-    //         }
-    //     }
-    // }
 
     async messageHandler(type, pattern, callback) {
         pattern = Array.isArray(pattern) ? pattern.join('|') : pattern
         pattern = pattern instanceof RegExp ? pattern : new RegExp(`^.${pattern}`, 'i');
-        if (!this.sock) {
-            throw new Error('Socket not initialized. Call start() first.');
-        }
-        if (typeof callback !== 'function') {
-            throw new Error('Callback must be a function.');
-        }
 
-        this.sock.ev.on('messages.upsert', async (events) => {
-            const upsert = events;
-            if (events.type === 'notify' && events.type === 'append') {
-                for (const msg of upsert.messages) {
-                    const type = await Function.messageEventType(msg);
-                    if (type === 'Update') {
-                        clk = chalk.blueBright
-                    } else if (type === 'Received') {
-                        clk = chalk.greenBright
-                    } else if (type === 'Delete') {
-                        clk = chalk.redBright
-                    }
+        if (!this.sock) throw new Error('Socket not initialized. Call start() first.');
+        if (typeof callback !== 'function') throw new Error('Callback must be a function.');
 
-                    let typeMessage = msg?.message && typeof msg.message === 'object' ? Object?.keys(msg.message)[0] : null;
-                    console.log(clk(`[${type} Message] at ${new Date(msg.messageTimestamp * 1000).toLocaleString()}`))
-                    let log = `from: ${msg.key.remoteJid}\n`
-                    log += `participant: ${msg.key.participant || 'N/A'}\n`
-                    log += `fromMe: ${msg.key.fromMe}\n`
-                    log += `id: ${msg.key.id}\n`
-                    log += `type: ${typeMessage}\n`
-                    log += `message: ${await Function.messageContent(msg)}\n`
-                    console.log(log)
+        // Save the handler
+        this.messageHandlers.push({ type, pattern, callback });
 
-                    let fromMe = msg.key.fromMe;
-                    const messageText = await Function.messageContent(msg);
+        // Register the event listener only once
+        if (!this.isMessageListenerRegistered) {
+            this.sock.ev.on('messages.upsert', async (events) => {
+                const msg = events.messages[0];
+                let fromMe = msg.key.fromMe;
+                const messageText = await Function.messageContent(msg);
 
-                    if (msg?.key?.participant?.endsWith('lid')) {
-                        const meta = await getCachedGroupMetadata(msg?.key.remoteJid, this.sock); // PAKAI CACHE
-                        const lid = meta?.participants?.find(p => p?.id === msg.key.participant);
-                        msg.key.participant = lid?.jid || msg.key.participant;
+                if (msg?.key?.participant?.endsWith('lid')) {
+                    const meta = await getCachedGroupMetadata(msg?.key.remoteJid, this.sock); // CACHE
+                    const lid = meta?.participants?.find(p => p?.id === msg.key.participant);
+                    msg.key.participant = lid?.jid || msg.key.participant;
 
-                        const botId = this.sock.user.id.replace(/:\d+(@)/, "$1");
-                        fromMe = botId === msg.key.participant;
-                    }
+                    const botId = this.sock.user.id.replace(/:\d+(@)/, "$1");
+                    fromMe = botId === msg.key.participant;
+                }
 
-                    if (!fromMe && this.selfMode) return;
+                if (!fromMe && this.selfMode) return;
 
-                    const ctx = async () => {
-                        this.ctx = {
+                for (const handler of this.messageHandlers) {
+                    const { type, pattern, callback } = handler;
+
+                    const isCommand = type === 'command' &&
+                        messageText &&
+                        this.prefix.some(prefix => messageText.startsWith(prefix)) &&
+                        messageText.match(pattern);
+
+                    const isHears = type === 'hears' &&
+                        messageText &&
+                        pattern?.test(messageText);
+
+                    if (isCommand || isHears) {
+                        const ctx = {
                             jid: msg.key.participant ? msg.key.participant : msg.key.remoteJid,
                             content: messageText,
                             messageType: msg?.message && typeof msg.message === 'object' ? Object?.keys(msg.message)[0] : null,
@@ -189,23 +206,15 @@ export class YrizzBot {
                             sendMessage: async (text) => this.sendMessage(text, msg),
                             react: async (text) => this.react(text, msg)
                         };
-                        return callback(this.ctx);
-                    };
-
-                    if (type === 'hears' && messageText && pattern?.test(messageText)) {
-                        ctx();
-                    } else if (
-                        type === 'command' &&
-                        messageText &&
-                        this.prefix.some(prefix => messageText.startsWith(prefix)) &&
-                        messageText.match(pattern)
-                    ) {
-                        ctx();
+                        await callback(ctx);
                     }
                 }
-            }
-        });
+            });
+
+            this.isMessageListenerRegistered = true;
+        }
     }
+
 
     async hears(pattern, callback) {
         this.messageHandler('hears', pattern, callback);
