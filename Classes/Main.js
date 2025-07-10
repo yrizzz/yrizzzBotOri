@@ -64,7 +64,6 @@ export class YrizzBot {
         const { state, saveCreds } = await useMultiFileAuthState('baileys_auth_info')
         const { version, isLatest } = await fetchLatestBaileysVersion()
         console.log(chalk.bgGreen(`using WA v${version.join('.')}, isLatest: ${isLatest}`))
-        const groupCache = new NodeCache({ stdTTL: 5 * 60, useClones: false })
         const sock = makeWASocket({
             version,
             logger,
@@ -171,8 +170,8 @@ export class YrizzBot {
                 const messageText = await Function.messageContent(msg);
 
                 if (msg?.key?.participant?.endsWith('lid')) {
-                    // const meta = await getCachedGroupMetadata(msg?.key.remoteJid, this.sock); // CACHE
-                    const meta = await this.sock.groupMetadata(msg?.key.remoteJid); // CACHE
+                    const meta = await getCachedGroupMetadata(msg?.key.remoteJid, this.sock); // CACHE
+                    // const meta = await this.sock.groupMetadata(msg?.key.remoteJid); // CACHE
 
                     console.log(meta)
                     const lid = meta?.participants?.find(p => p?.id === msg.key.participant);
