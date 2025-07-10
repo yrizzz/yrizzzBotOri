@@ -16,11 +16,10 @@ export default {
 
             const result = await req('POST', 'https://yrizzz.my.id/api/v1/ai/blackboxImageText', formdata);
 
-            if (result.status) {
-                await ctx.reply(result.data.replaceAll('**', '*'))
-                await ctx.react('✅');
-            }
+            await ctx.reply(result.data.replaceAll('**', '*'))
+            await ctx.react('✅');
 
+            return;
         } catch (err) {
             await ctx.react('⛔');
             await ctx.reply('Failed to fetch please contact the owner');
