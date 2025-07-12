@@ -9,9 +9,9 @@ export default {
             await ctx.react('⏳');
             let data = helper.filtermessage(await ctx.msg, ...await ctx.args);
 
-            const result = await req('GET', `https://yrizzz.my.id/api/v1/socialmedia/igprofile?username=jokowi`);
-            console.log(result)
-            if (result.status == 200) {
+            const result = await req('GET', `https://yrizzz.my.id/api/v1/socialmedia/igprofile?username=${data}`);
+
+            if (result.status) {
                 let caption = '✅ Success\n\n';
                 caption += 'Fullname : ' + result.data.full_name + '\n';
                 caption += 'Username : ' + result.data.username + '\n';
@@ -26,7 +26,6 @@ export default {
             return;
 
         } catch (err) {
-            console.log(err)
             await ctx.react('⛔');
             await ctx.reply('Failed to fetch please contact the owner');
 
