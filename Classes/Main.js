@@ -154,15 +154,12 @@ export class YrizzBot {
 
     async messageHandler(type, pattern, callback) {
         pattern = Array.isArray(pattern) ? pattern.join('|') : pattern
-        pattern = pattern instanceof RegExp ? pattern : new RegExp(`^.${pattern}`, 'i');
+        pattern = new RegExp(`^.${pattern}\\b`);
 
         if (!this.sock) throw new Error('Socket not initialized. Call start() first.');
         if (typeof callback !== 'function') throw new Error('Callback must be a function.');
 
-        // Save the handler
         this.messageHandlers.push({ type, pattern, callback });
-
-        // Register the event listener only once
         if (!this.isMessageListenerRegistered) {
             this.sock.ev.on('messages.upsert', async (events) => {
                 const msg = events.messages[0];
@@ -170,7 +167,7 @@ export class YrizzBot {
                 const messageText = await Function.messageContent(msg);
 
                 if (msg?.key?.participant?.endsWith('lid')) {
-                    const meta = await getCachedGroupMetadata(msg?.key.remoteJid, this.sock); 
+                    const meta = await getCachedGroupMetadata(msg?.key.remoteJid, this.sock);
                     const lid = meta?.participants?.find(p => p?.id === msg.key.participant);
                     msg.key.participant = lid?.jid || msg.key.participant;
 
@@ -201,7 +198,7 @@ export class YrizzBot {
                             args: messageText.split(' ').slice(1),
                             msg: msg,
                             sock: this.sock,
-                            prefixSupport:this.prefix,
+                            prefixSupport: this.prefix,
                             reply: async (text) => this.reply(text, msg),
                             sendMessage: async (text) => this.sendMessage(text, msg),
                             react: async (text) => this.react(text, msg)
@@ -233,7 +230,6 @@ export class YrizzBot {
     }
 
     async sendMessage(text, msg) {
-
         if (Array.isArray(text)) {
             await this.sock.sendMessage(msg.key.remoteJid, ...text);
         } else {
@@ -249,7 +245,7 @@ export class YrizzBot {
         await this.startSock();
     }
 
-    async loadCommands() {
+    async loadCommands(sortOrder = 'asc') {
         if (!this.sock) {
             throw new Error('Socket not initialized. Call start() first.');
         }
@@ -271,6 +267,7 @@ export class YrizzBot {
         }
 
         const files = getJsFilesRecursively(commandsDir);
+        const commandList = [];
 
         for (const filePath of files) {
             const fileUrl = pathToFileURL(filePath).href;
@@ -289,13 +286,27 @@ export class YrizzBot {
                 continue;
             }
 
+            commandList.push({ command, filePath });
+        }
+
+        // Sort command list by name
+        commandList.sort((a, b) => {
+            const nameA = a.command.name.toLowerCase();
+            const nameB = b.command.name.toLowerCase();
+            return sortOrder === 'desc'
+                ? nameB.localeCompare(nameA)
+                : nameA.localeCompare(nameB);
+        });
+
+        // Load sorted commands
+        for (const { command, filePath } of commandList) {
             console.log(chalk.green(`Loading command: ${command.name}`));
 
             try {
                 if (command.type === 'command') {
-                    await this.command(command?.prefix ? command?.prefix : command.name, command.code);
+                    await this.command(command?.aliases ? command?.aliases : command.name, command.code);
                 } else if (command.type === 'hears') {
-                    await this.hears(command?.prefix ? command?.prefix : command.name, command.code);
+                    await this.hears(command?.aliases ? command?.aliases : command.name, command.code);
                 } else {
                     console.warn(chalk.red(`Unknown command type '${command.type}' in: ${filePath}`));
                 }
@@ -304,6 +315,7 @@ export class YrizzBot {
             }
         }
     }
+
 
 }
 

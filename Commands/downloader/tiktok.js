@@ -2,8 +2,8 @@ import req from '../../Handlers/req.js';
 import helper from '../../Handlers/helper.js';
 
 export default {
-	name: 'tiktok',
-	prefix: ['tiktok'],
+	name: 'tiktokDownloader',
+	aliases: ['tt'],
 	type: 'command',
 	code: async (ctx) => {
 		try {

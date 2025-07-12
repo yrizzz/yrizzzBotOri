@@ -4,7 +4,7 @@ import helper from '../../Handlers/helper.js';
 
 export default {
     name: 'blackbox',
-    prefix: ['blackbox', 'bb'],
+    aliases: ['blackbox', 'bb'],
     type: 'command',
     code: async (ctx) => {
         try {

@@ -2,7 +2,8 @@ import req from '../../Handlers/req.js';
 import helper from '../../Handlers/helper.js';
 
 export default {
-	name: 'fb',
+	name: 'facebookDownloader',
+	aliases:['fb'],
 	type: 'command',
 	code: async (ctx) => {
 		try {

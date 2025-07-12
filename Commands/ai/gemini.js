@@ -4,7 +4,7 @@ import helper from '../../Handlers/helper.js';
 
 export default {
     name: 'gemini',
-    prefix: ['gemini', 'gm'],
+    aliases: ['gemini', 'gm'],
     type: 'command',
     code: async (ctx) => {
         try {

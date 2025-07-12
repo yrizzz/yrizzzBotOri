@@ -3,7 +3,7 @@ import helper from '../../Handlers/helper.js';
 
 export default {
     name: 'ytvideo',
-    prefix: ['ytvid', 'ytvideo', 'ytmp4'],
+    aliases: ['ytvid', 'ytvideo', 'ytmp4'],
     type: 'command',
     code: async (ctx) => {
         try {

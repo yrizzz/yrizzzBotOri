@@ -3,7 +3,7 @@ import helper from '../../Handlers/helper.js';
 
 export default {
     name: 'ytaudio',
-    prefix: ['ytaudio', 'ytmp3'],
+    aliases: ['ytaudio', 'ytmp3'],
     type: 'command',
     code: async (ctx) => {
         try {

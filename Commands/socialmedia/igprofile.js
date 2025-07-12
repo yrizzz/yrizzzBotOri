@@ -3,6 +3,7 @@ import helper from '../../Handlers/helper.js';
 
 export default {
     name: 'igprofile',
+    aliases: ['igprofile'],
     type: 'command',
     code: async (ctx) => {
         try {
@@ -23,6 +24,7 @@ export default {
                 await ctx.reply([{ image: { url: result.data.hd_profile_pic_url_info.url }, caption: caption }, { ephemeralExpiration: ctx?.msg?.message?.extendedTextMessage?.contextInfo?.expiration ?? 0 }]);
                 await ctx.react('✅');
             }
+
             return;
 
         } catch (err) {

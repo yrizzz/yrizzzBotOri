@@ -2,7 +2,8 @@ import req from '../../Handlers/req.js';
 import helper from '../../Handlers/helper.js';
 
 export default {
-	name: 'ig',
+	name: 'instagramDownloader',
+	aliases:['ig'],
 	type: 'command',
 	code: async (ctx) => {
 		try {
@@ -11,6 +12,7 @@ export default {
 			console.log(helper.link(data))
 
 			const result = await req('GET', `https://yrizzz.my.id/api/v1/downloader/instagram?data=${helper.link(data)}`);
+			console.log(result);
 
 			if (result.status) {
 				if (result.data?.mediaUrls[0]?.url) {
