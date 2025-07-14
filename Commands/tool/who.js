@@ -1,4 +1,5 @@
 import req from '../../Handlers/req.js';
+import Function from '../../Classes/Function.js';
 
 export default {
     name: 'who',
@@ -6,7 +7,7 @@ export default {
     code: async (ctx) => {
         try {
             await ctx.react('⏳');
-            let s = ctx.jid;
+            let s = Function.jid(ctx.msg);
             if (typeof s === 'string' && s.length > 2) {
                 s = '0' + s.substring(2);
                 s = s.replace('@s.whatsapp.net', '');
@@ -20,7 +21,6 @@ export default {
             await ctx.react('✅');
 
         } catch (err) {
-            console.log(err)
             await ctx.react('⛔');
             await ctx.reply('Failed to fetch please contact the owner');
         }

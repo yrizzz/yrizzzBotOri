@@ -1,4 +1,3 @@
-import req from '../../Handlers/req.js';
 import Function from '../../Classes/Function.js';
 
 export default {
@@ -16,7 +15,6 @@ export default {
                 await ctx.reply([{ image: media, caption: 'Success ✅' }, { ephemeralExpiration: ctx.msg?.message?.extendedTextMessage?.contextInfo?.expiration ?? 0 }]);
             }
         } catch (err) {
-            console.log(err)
             await ctx.react('⛔');
             await ctx.reply('Failed to fetch please contact the owner');
         }
